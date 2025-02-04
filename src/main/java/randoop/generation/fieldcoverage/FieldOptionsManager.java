@@ -8,11 +8,8 @@ import io.github.cdimascio.dotenv.DotenvEntry;
 import io.github.cdimascio.dotenv.DotenvException;
 import java.io.*;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import randoop.generation.fieldcoverage.canonizationanalysis.CanonizationAnalyzer;
-
-// TESTING
 
 public class FieldOptionsManager {
 
@@ -262,13 +259,4 @@ public class FieldOptionsManager {
     return sb.toString();
   }
 
-  public static void main(String[] args) {
-    Path env = Paths.get(args[0]);
-    FieldOptionsManager optionsManager = new FieldOptionsManager(env);
-    System.out.println("Loaded properties:\n" + optionsManager);
-    FieldMetricsAnalyzer fieldMetricsAnalyzer = new FieldMetricsAnalyzer(optionsManager);
-    FieldOptionsManager obj = optionsManager;
-    fieldMetricsAnalyzer.canonicalize(obj);
-    System.out.println(fieldMetricsAnalyzer.getLastObjectRepresentation());
-  }
 }
