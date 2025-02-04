@@ -1035,6 +1035,17 @@ Randoop about your application, and that is how we recommend using Randoop.
              How many suspected side-effecting or nondeterministic methods (from the program under test) to
  print. [default 10]
       </ul>
+  <li id="optiongroup:Field-Coverage">Field Coverage
+      <ul>
+            <li id="option:field-coverage-env"><b>--field-coverage-env=</b><i>string</i>.
+             Use a specific .env file [default field_coverage.env]
+            <li id="option:field-coverage-statement-filtering"><b>--field-coverage-statement-filtering=</b><i>boolean</i>.
+             Whether to enable statement filtering based on field coverage. When enabled, each time randoop
+ tries to extend a test with a new statement, if no new field-value pair is covered, the test
+ cannot be extended further after that statement. [default false]
+            <li id="option:field-coverage-metrics"><b>--field-coverage-metrics=</b><i>boolean</i>.
+             Enable field coverage metrics, false by default [default false]
+      </ul>
   <li id="optiongroup:Which-tests-to-output">Which tests to output
       <ul>
             <li id="option:no-error-revealing-tests"><b>--no-error-revealing-tests=</b><i>boolean</i>.
