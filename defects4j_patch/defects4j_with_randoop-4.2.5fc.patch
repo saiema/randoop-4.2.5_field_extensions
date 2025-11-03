@@ -1,0 +1,108 @@
+diff --git a/framework/bin/gen_tests.pl b/framework/bin/gen_tests.pl
+index 24571f4a..83948f6d 100755
+--- a/framework/bin/gen_tests.pl
++++ b/framework/bin/gen_tests.pl
+@@ -30,7 +30,7 @@ gen_tests.pl -- generate a test suite using one of the supported test generators
+ 
+ =head1 SYNOPSIS
+ 
+-  gen_tests.pl -g generator -p project_id -v version_id -n test_id -o out_dir -b total_budget [-c target_classes] [-s random_seed] [-t tmp_dir] [-E] [-D]
++  gen_tests.pl -g generator -p project_id -v version_id -n test_id -o out_dir -b total_budget [-l test_limit] [-c target_classes] [-s random_seed] [-t tmp_dir] [-E] [-D]
+ 
+ =head1 OPTIONS
+ 
+@@ -65,6 +65,11 @@ F<out_dir/project_id/version_id>.
+ 
+ The total time in seconds allowed for test generation.
+ 
++=item -l C<test_limit>
++
++Limits how many tests to generate. By default, the limit is 100000000.
++Format: C<\d+>.
++
+ =item -c F<classes_file>
+ 
+ The file that lists all classes the test generator should target, one class per
+@@ -151,7 +156,7 @@ use Log;
+ # Process arguments and issue usage message if necessary.
+ #
+ my %cmd_opts;
+-getopts('g:p:v:o:n:b:c:s:t:ED', \%cmd_opts) or pod2usage(1);
++getopts('g:p:v:o:n:b:c:s:t:l:ED', \%cmd_opts) or pod2usage(1);
+ my $TOOL = $cmd_opts{g};
+ # Print all supported generators, regardless of the other arguments, if -g help
+ # is set
+@@ -184,6 +189,9 @@ $TID =~ /^\d+$/ or die "Wrong test_id format (\\d+): $TID!";
+ my $TIME = $cmd_opts{b};
+ $TIME =~ /^\d+$/ or die "Wrong budget format (\\d+): $TIME!";
+ 
++# Set or compute the tests limit
++my $TEST_LIMIT = $cmd_opts{l} // 100000000;
++
+ my $OUT_DIR = $cmd_opts{o};
+ 
+ # Set or compute the random seed
+@@ -241,6 +249,7 @@ $LOG->log_msg(" -n $TID");
+ $LOG->log_msg(" -b $TIME");
+ $LOG->log_msg(" -c $TARGET_CLASSES");
+ $LOG->log_msg(" -s $SEED");
++$LOG->log_msg(" -l $TEST_LIMIT");
+ 
+ # Export all environment variables that are expected by the wrapper script of
+ # the test generator.
+@@ -255,6 +264,7 @@ $ENV{D4J_TOTAL_BUDGET}        = "$TIME";
+ $ENV{D4J_SEED}                = "$SEED";
+ $ENV{D4J_TEST_MODE}           = "$MODE";
+ $ENV{D4J_DEBUG}               = "$DEBUG";
++$ENV{D4J_TEST_LIMIT}          = "$TEST_LIMIT";
+ 
+ # Create temporary output directory
+ Utils::exec_cmd("mkdir -p $TMP_DIR/$TOOL", "Creating temporary output directory")
+diff --git a/framework/lib/test_generation/bin/randoop.config.default b/framework/lib/test_generation/bin/randoop.config.default
+index 82812d6a..91cc23ec 100755
+--- a/framework/lib/test_generation/bin/randoop.config.default
++++ b/framework/lib/test_generation/bin/randoop.config.default
+@@ -12,3 +12,5 @@
+ --only-test-public-members=false
+ --omit-methods=HashCodeAndEqualsSafeSet.of
+ --omit-methods=CSVPrinter.close
++--field-coverage-metrics=true
++--field-coverage-env=framework/lib/test_generation/generation/randoop-4.2.5/field_coverage_metrics.env
+diff --git a/framework/lib/test_generation/bin/randoop.sh b/framework/lib/test_generation/bin/randoop.sh
+index e296e477..49b4ec45 100755
+--- a/framework/lib/test_generation/bin/randoop.sh
++++ b/framework/lib/test_generation/bin/randoop.sh
+@@ -74,6 +74,10 @@ PACKAGE=$(sed 's/\.[A-Za-z_$][^.]*$//' "$D4J_FILE_TARGET_CLASSES" | uniq -c | so
+ # Build the test-generation command
+ cmd="java -ea -classpath $project_cp:$D4J_DIR_TESTGEN_LIB/randoop-current.jar \
+   -Xbootclasspath/a:$D4J_DIR_TESTGEN_LIB/replacecall-current.jar \
++  -XX:+UseConcMarkSweepGC \
++  -XX:-UseGCOverheadLimit \
++  -Xms15G \
++  -Xmx15G \
+   -javaagent:$D4J_DIR_TESTGEN_LIB/replacecall-current.jar \
+   -javaagent:$D4J_DIR_TESTGEN_LIB/covered-class-current.jar \
+ randoop.main.Main gentests \
+@@ -83,6 +87,7 @@ randoop.main.Main gentests \
+   --junit-output-dir=$D4J_DIR_OUTPUT \
+   --randomseed=$D4J_SEED \
+   --time-limit=$D4J_TOTAL_BUDGET \
++  --output-limit=$D4J_TEST_LIMIT \
+   --regression-test-basename=$REG_BASE_NAME \
+   --error-test-basename=$ERR_BASE_NAME \
+   $add_config"
+diff --git a/init.sh b/init.sh
+index 2c92574c..a224454a 100755
+--- a/init.sh
++++ b/init.sh
+@@ -167,8 +167,8 @@ cd "$DIR_LIB_RT"  && download_url "$EVOSUITE_URL/$EVOSUITE_RT_JAR"
+ #
+ echo
+ echo "Setting up Randoop ... "
+-RANDOOP_VERSION="4.3.3"
+-RANDOOP_URL="https://github.com/randoop/randoop/releases/download/v${RANDOOP_VERSION}"
++RANDOOP_VERSION="4.2.5"
++RANDOOP_URL="file:///home/stein/Projects/Research/object-variability-metric/randoop_4_2_5/zip_folder/"
+ RANDOOP_ZIP="randoop-${RANDOOP_VERSION}.zip"
+ RANDOOP_JAR="randoop-all-${RANDOOP_VERSION}.jar"
+ REPLACECALL_JAR="replacecall-${RANDOOP_VERSION}.jar"
