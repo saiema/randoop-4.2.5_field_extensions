@@ -5,6 +5,7 @@ import randoop.generation.fieldcoverage.FieldMetricsAnalyzer;
 import randoop.sequence.ExecutableSequence;
 import randoop.sequence.ReferenceValue;
 import randoop.util.ProgressDisplay;
+import representations.FieldExtensions;
 
 public class FieldCoverageEventListener implements IEventListener {
 
@@ -48,7 +49,9 @@ public class FieldCoverageEventListener implements IEventListener {
     if (eseq == null || !eseq.isNormalExecution()) return;
     List<ReferenceValue> lastStatementValues = eseq.getLastStatementValues();
     for (ReferenceValue value : lastStatementValues) {
-      this.fieldMetricsAnalyzer.canonicalize(value.getObjectValue());
+      FieldExtensions lastStatementFieldExtensions =
+          this.fieldMetricsAnalyzer.canonicalize(value.getObjectValue());
+      eseq.setFieldExtensionsFromLastStatement(lastStatementFieldExtensions);
     }
   }
 

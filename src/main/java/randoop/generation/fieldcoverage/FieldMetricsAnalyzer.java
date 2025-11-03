@@ -45,7 +45,14 @@ public class FieldMetricsAnalyzer {
     return newFieldValuePairsSeen;
   }
 
-  public void canonicalize(Object object) {
+  /**
+   * Given an object, it will canonize it as field/value tuples, use those tuples to calculate field
+   * coverage metrics.
+   *
+   * @param object the object to canonicalize
+   * @return the field/value tuples from {@code object}
+   */
+  public FieldExtensions canonicalize(Object object) {
     newFieldValuePairsSeen = false;
     long fieldsSavedBefore = this.objectCanonicalizer.storageSize();
     this.objectCanonicalizer.canonicalize(object);
@@ -80,6 +87,7 @@ public class FieldMetricsAnalyzer {
       output.println("Last object rep:\n---Start---\n" + lastObjectRep + "\n---End---");
       output.flush();
     }
+    return lastObjectRep;
   }
 
   public CanonicalObjectRepresentation getLastObjectRepresentation() {

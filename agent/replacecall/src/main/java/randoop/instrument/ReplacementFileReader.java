@@ -167,9 +167,7 @@ public class ReplacementFileReader {
       HashMap<MethodSignature, MethodSignature> replacementMap,
       String originalSignature,
       String replacementSignature)
-      throws ReplacementException,
-          ClassNotFoundException,
-          IllegalClassFormatException,
+      throws ReplacementException, ClassNotFoundException, IllegalClassFormatException,
           NoSuchMethodException {
 
     MethodSignature original;

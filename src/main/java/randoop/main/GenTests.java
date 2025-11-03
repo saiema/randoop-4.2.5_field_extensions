@@ -46,6 +46,7 @@ import randoop.condition.RandoopSpecificationError;
 import randoop.condition.SpecificationCollection;
 import randoop.execution.TestEnvironment;
 import randoop.generation.*;
+import randoop.generation.fieldcoverage.FieldExtensionsFileUtils;
 import randoop.generation.fieldcoverage.FieldMetricsAnalyzer;
 import randoop.generation.fieldcoverage.FieldOptionsManager;
 import randoop.instrument.CoveredClassVisitor;
@@ -873,6 +874,8 @@ public class GenTests extends GenInputsAbstract {
       int numFiles = (numTests - 1) / testsperfile + 1;
 
       NameGenerator methodNameGenerator = new NameGenerator(TEST_METHOD_NAME_PREFIX, 1, numTests);
+      NameGenerator fieldExtensionsNameGenerator =
+          new NameGenerator(TEST_METHOD_NAME_PREFIX, 1, numTests);
 
       for (int i = 0; i < numFiles; i++) {
         List<ExecutableSequence> partition =
@@ -885,6 +888,15 @@ public class GenTests extends GenInputsAbstract {
         Path testFile =
             codeWriter.writeClassCode(
                 GenInputsAbstract.junit_package_name, testClassName, classSource);
+        if (GenInputsAbstract.field_coverage_save_to_file) {
+          String fieldExtensionsName = fieldExtensionsNameGenerator.next();
+          fieldExtensionsName += FieldExtensionsFileUtils.FILE_EXTENSION;
+          File folder = testFile.getParent().toFile();
+          for (ExecutableSequence es : partition) {
+            FieldExtensionsFileUtils.save(
+                es.getFieldExtensionsFromLastStatement(), folder, fieldExtensionsName);
+          }
+        }
         if (GenInputsAbstract.progressdisplay) {
           System.out.printf("Created file %s%n", testFile.toAbsolutePath());
         }

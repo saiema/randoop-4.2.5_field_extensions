@@ -29,6 +29,7 @@ import randoop.types.Type;
 import randoop.util.IdentityMultiMap;
 import randoop.util.Log;
 import randoop.util.ProgressDisplay;
+import representations.FieldExtensions;
 
 /**
  * An ExecutableSequence wraps a {@link Sequence} with functionality for executing the sequence, via
@@ -102,6 +103,29 @@ public class ExecutableSequence {
 
   /** The subsequences that were concatenated to create this sequence. */
   public List<Sequence> componentSequences = Collections.emptyList();
+
+  /** Field/value tuples obtained from all objects at the last statement of this sequence */
+  private FieldExtensions fieldExtensionsFromLastStatement;
+
+  /**
+   * Returns field/value tuples obtained from all objects at the last statement of this sequence.
+   *
+   * @return Field/value tuples obtained from all objects at the last statement of this sequence
+   */
+  public FieldExtensions getFieldExtensionsFromLastStatement() {
+    return fieldExtensionsFromLastStatement;
+  }
+
+  /**
+   * Set Field/value tuples obtained from all objects at the last statement of this sequence
+   *
+   * @param fieldExtensionsFromLastStatement the new Field/value tuples obtained from all objects at
+   *     the last statement of this sequence
+   */
+  public void setFieldExtensionsFromLastStatement(
+      FieldExtensions fieldExtensionsFromLastStatement) {
+    this.fieldExtensionsFromLastStatement = fieldExtensionsFromLastStatement;
+  }
 
   /**
    * Create an executable sequence that executes the given sequence.
