@@ -21,6 +21,7 @@ compile:
 	./gradlew shadowJar
 
 copy_jars: compile
+	mkdir -p "$(ZIP_FOLDER)/randoop-$(VERSION)/"
 	cp "$(AGENT_DIR)/replacecall/$(BUILD_LIBS)/replacecall-$(VERSION).jar" "$(ZIP_FOLDER)/randoop-$(VERSION)/"
 	cp "$(AGENT_DIR)/covered-class/$(BUILD_LIBS)/covered-class-$(VERSION).jar" "$(ZIP_FOLDER)/randoop-$(VERSION)/"
 	cp "$(BUILD_LIBS)/randoop-$(VERSION).jar" "$(ZIP_FOLDER)/randoop-$(VERSION)/"
@@ -28,6 +29,5 @@ copy_jars: compile
 	cp "field_coverage_metrics.env" "$(ZIP_FOLDER)/randoop-$(VERSION)/"
 
 zip: copy_jars
-	mkdir -p "$(ZIP_FOLDER)"
 	cd "$(ZIP_FOLDER)" && \
 	zip -r "randoop-$(VERSION).zip" "randoop-$(VERSION)/"
