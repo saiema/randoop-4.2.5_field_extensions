@@ -46,9 +46,9 @@ import randoop.condition.RandoopSpecificationError;
 import randoop.condition.SpecificationCollection;
 import randoop.execution.TestEnvironment;
 import randoop.generation.*;
-import randoop.generation.fieldcoverage.FieldExtensionsFileUtils;
-import randoop.generation.fieldcoverage.FieldMetricsAnalyzer;
+import randoop.generation.fieldcoverage.FieldCoverage;
 import randoop.generation.fieldcoverage.FieldOptionsManager;
+import randoop.generation.fieldcoverage.io.FieldExtensionsFileUtils;
 import randoop.instrument.CoveredClassVisitor;
 import randoop.operation.Operation;
 import randoop.operation.OperationParseException;
@@ -137,6 +137,8 @@ public class GenTests extends GenInputsAbstract {
 
   /** The prefix for test method names. */
   public static final @Identifier String TEST_METHOD_NAME_PREFIX = "test";
+
+  public static final @Identifier String FE_ERROR_REVEALING_TEST_METHOD_PREFIX = "test_error";
 
   private BlockStmt afterAllFixtureBody;
   private BlockStmt afterEachFixtureBody;
@@ -400,16 +402,6 @@ public class GenTests extends GenInputsAbstract {
         componentMgr, GenInputsAbstract.literals_file, GenInputsAbstract.literals_level);
 
     RandoopListenerManager listenerMgr = new RandoopListenerManager();
-    FieldMetricsAnalyzer fieldMetricsAnalyzer = null;
-    if (GenInputsAbstract.field_coverage_metrics) {
-      FieldOptionsManager fieldOptionsManager =
-          new FieldOptionsManager(Paths.get(GenInputsAbstract.field_coverage_env));
-      fieldMetricsAnalyzer = new FieldMetricsAnalyzer(fieldOptionsManager);
-      FieldCoverageEventListener fieldCoverageEventListener =
-          new FieldCoverageEventListener(fieldMetricsAnalyzer);
-      listenerMgr.addListener(fieldCoverageEventListener);
-    }
-
     MultiMap<Type, TypedClassOperation> sideEffectFreeMethodsByType = readSideEffectFreeMethods();
 
     Set<TypedOperation> sideEffectFreeMethods = new LinkedHashSet<>();
@@ -539,6 +531,16 @@ public class GenTests extends GenInputsAbstract {
       return true;
     }
 
+    if (GenInputsAbstract.field_coverage_metrics) {
+      explorer
+          .getRegressionSequences()
+          .forEach(FieldCoverage.getInstance()::addFieldExtensionsToAnalysis);
+      explorer
+          .getErrorTestSequences()
+          .forEach(FieldCoverage.getInstance()::addFieldExtensionsToAnalysis);
+      FieldCoverage.getInstance().printMetrics();
+    }
+
     JUnitCreator junitCreator =
         JUnitCreator.getTestCreator(
             junit_package_name,
@@ -617,10 +619,6 @@ public class GenTests extends GenInputsAbstract {
     // Operation history includes counts determined by getting regression sequences from explorer,
     // so dump after all done.
     explorer.getOperationHistory().outputTable();
-    if (GenInputsAbstract.field_coverage_metrics) {
-      assert fieldMetricsAnalyzer != null;
-      fieldMetricsAnalyzer.printMetrics();
-    }
     return true;
   }
 
@@ -873,9 +871,21 @@ public class GenTests extends GenInputsAbstract {
       // Test class names are classNamePrefix, followed by an integer in 0..numFiles-1.
       int numFiles = (numTests - 1) / testsperfile + 1;
 
+      /* FieldCoverage: we will only deal with normal (non-failing) tests unless the
+       *  the option to include field extensions for  error revealing tests is enabled
+       *  Since Randoop divides tests into non-failing and error revealing ones, we need to only
+       *  check the first test in the partition to know if all tests are either non-failing or error-revealing */
+      boolean errorRevealingTests =
+          !testSequences.isEmpty() && !testSequences.get(0).isNormalExecution();
+      boolean fieldExtensionsConsiderTests =
+          !errorRevealingTests || FieldOptionsManager.getInstance().includeErrorRevealingTests();
+
       NameGenerator methodNameGenerator = new NameGenerator(TEST_METHOD_NAME_PREFIX, 1, numTests);
       NameGenerator fieldExtensionsNameGenerator =
-          new NameGenerator(TEST_METHOD_NAME_PREFIX, 1, numTests);
+          new NameGenerator(
+              errorRevealingTests ? FE_ERROR_REVEALING_TEST_METHOD_PREFIX : TEST_METHOD_NAME_PREFIX,
+              1,
+              numTests);
 
       for (int i = 0; i < numFiles; i++) {
         List<ExecutableSequence> partition =
@@ -888,13 +898,12 @@ public class GenTests extends GenInputsAbstract {
         Path testFile =
             codeWriter.writeClassCode(
                 GenInputsAbstract.junit_package_name, testClassName, classSource);
-        if (GenInputsAbstract.field_coverage_save_to_file) {
-          String fieldExtensionsName = fieldExtensionsNameGenerator.next();
-          fieldExtensionsName += FieldExtensionsFileUtils.FILE_EXTENSION;
+        if (FieldOptionsManager.getInstance().saveFieldExtensionsToFile()
+            && fieldExtensionsConsiderTests) {
           File folder = testFile.getParent().toFile();
           for (ExecutableSequence es : partition) {
-            FieldExtensionsFileUtils.save(
-                es.getFieldExtensionsFromLastStatement(), folder, fieldExtensionsName);
+            String fieldExtensionsName = fieldExtensionsNameGenerator.next();
+            FieldExtensionsFileUtils.save(es, folder, fieldExtensionsName);
           }
         }
         if (GenInputsAbstract.progressdisplay) {

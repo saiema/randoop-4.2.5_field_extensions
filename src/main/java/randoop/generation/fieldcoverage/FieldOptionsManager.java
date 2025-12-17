@@ -8,26 +8,31 @@ import io.github.cdimascio.dotenv.DotenvEntry;
 import io.github.cdimascio.dotenv.DotenvException;
 import java.io.*;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import randoop.generation.fieldcoverage.canonizationanalysis.CanonizationAnalyzer;
+import randoop.main.GenInputsAbstract;
 
 public class FieldOptionsManager {
 
+  private static FieldOptionsManager instance = null;
   private final Dotenv dotenv;
 
-  public FieldOptionsManager(Path env) {
+  public static FieldOptionsManager getInstance() {
+    if (instance == null) {
+      instance = new FieldOptionsManager(Paths.get(GenInputsAbstract.field_coverage_env));
+    }
+    return instance;
+  }
+
+  private FieldOptionsManager(Path env) {
     if (env == null) {
       throw new IllegalArgumentException(".env path is null");
-    }
-    if (!env.toFile().exists()) {
-      throw new IllegalArgumentException(".env path does not exist: " + env);
-    }
-    if (!env.toFile().canRead()) {
-      throw new IllegalArgumentException(".env path is not readable: " + env);
     }
     try {
       this.dotenv =
           Dotenv.configure()
+              .ignoreIfMissing()
               .directory(!env.isAbsolute() ? "./" : "")
               .filename(env.toString())
               .load();
@@ -135,9 +140,21 @@ public class FieldOptionsManager {
     return Boolean.parseBoolean(dotenv.get("SAVE_ARRAY_NULL_VALUES", "false"));
   }
 
+  public boolean saveFieldExtensionsToFile() {
+    return Boolean.parseBoolean(dotenv.get("FIELD_EXTENSIONS_SAVE_TO_FILE", "false"));
+  }
+
+  public boolean includeSequenceWhenSavingExtensionsToFile() {
+    return Boolean.parseBoolean(dotenv.get("INCLUDE_SEQUENCE_WHEN_SAVING_TO_FILE", "false"));
+  }
+
+  public boolean includeErrorRevealingTests() {
+    return Boolean.parseBoolean(dotenv.get("INCLUDE_ERROR_REVEALING_TESTS", "false"));
+  }
+
   private PrintStream outputStream = null;
 
-  public PrintStream outputFile() {
+  public PrintStream outputStream() {
     if (outputStream != null) {
       return outputStream;
     }

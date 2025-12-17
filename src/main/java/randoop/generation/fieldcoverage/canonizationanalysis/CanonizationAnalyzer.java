@@ -37,20 +37,14 @@ public class CanonizationAnalyzer {
   private final Map<String, Integer> fieldExtensionsDifferentValuesCount = new HashMap<>();
   private final ORDERING ordering;
   private final boolean csvFriendly;
-  private final List<Field> allSeenFields_debug = new ArrayList<>();
-  private final boolean debug;
 
-  public CanonizationAnalyzer(FieldOptionsManager fieldOptionsManager) {
-    this.ordering = fieldOptionsManager.canonizationAnalyzerOrder();
-    this.csvFriendly = fieldOptionsManager.csvFriendlyReport();
-    this.debug = fieldOptionsManager.debug();
+  public CanonizationAnalyzer() {
+    this.ordering = FieldOptionsManager.getInstance().canonizationAnalyzerOrder();
+    this.csvFriendly = FieldOptionsManager.getInstance().csvFriendlyReport();
   }
 
   public void parseRawFieldExtension(String fieldRaw, String objectRaw, String valueRaw) {
     Field field = new Field(objectRaw, fieldRaw);
-    if (debug) {
-      allSeenFields_debug.add(field);
-    }
     int objectID = field.getObjectID();
     Value value = new Value(valueRaw);
     List<Pair<Integer, Set<String>>> extensions;
@@ -158,33 +152,7 @@ public class CanonizationAnalyzer {
     if (csvFriendly) {
       sb.insert(0, "ClassAndField, seen, value types, different values\n");
     }
-    if (debug) {
-      sb.append("Sanity check: all values counted [")
-          .append(sumAllValuesSeen())
-          .append("], different values counted [")
-          .append(sumAllDifferentValuesSeen())
-          .append("]\n");
-      for (Field seenField : allSeenFields_debug) {
-        sb.append("Raw field: ").append(seenField.getRawValue()).append("\n");
-      }
-    }
     return sb.toString();
-  }
-
-  private int sumAllValuesSeen() {
-    int sum = 0;
-    for (Map.Entry<String, Integer> entry : fieldExtensionsCount.entrySet()) {
-      sum += entry.getValue();
-    }
-    return sum;
-  }
-
-  private int sumAllDifferentValuesSeen() {
-    int sum = 0;
-    for (Map.Entry<String, Integer> entry : fieldExtensionsDifferentValuesCount.entrySet()) {
-      sum += entry.getValue();
-    }
-    return sum;
   }
 
   private static class CanonizationOrdering implements Comparator<Map.Entry<String, Set<String>>> {

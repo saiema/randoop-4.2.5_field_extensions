@@ -306,9 +306,6 @@ public abstract class GenInputsAbstract extends CommandHandler {
   @Option("Enable field coverage metrics, false by default")
   public static boolean field_coverage_metrics = false;
 
-  @Option("Enable field coverage save to file, false by default")
-  public static boolean field_coverage_save_to_file = false;
-
   /**
    * Whether to output error-revealing tests. Disables all output when used with {@code
    * --no-regression-tests}. Restricting output can result in long runs if the default values of

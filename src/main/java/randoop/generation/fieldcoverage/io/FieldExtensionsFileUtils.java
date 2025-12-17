@@ -1,9 +1,15 @@
-package randoop.generation.fieldcoverage;
+package randoop.generation.fieldcoverage.io;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import java.io.*;
 import java.nio.file.Files;
 import java.util.LinkedList;
 import java.util.List;
+import randoop.generation.fieldcoverage.FieldOptionsManager;
+import randoop.sequence.ExecutableSequence;
 import representations.FieldExtension;
 import representations.FieldExtensions;
 
@@ -33,20 +39,21 @@ import representations.FieldExtensions;
  */
 public class FieldExtensionsFileUtils {
 
-  public static String FILE_EXTENSION = ".fexts";
+  public static final String FILE_EXTENSION = ".fexts";
 
   /**
    * Save field extensions {@link representations.FieldExtensions} to a file
    *
-   * @param fieldExtensions the field extensions to save
+   * @param from the sequence from which the extensions come from
    * @param folder the folder where to save the field extensions
    * @param name the name of the new file (without the file extension)
    */
-  public static void save(FieldExtensions fieldExtensions, File folder, String name) {
+  public static void save(ExecutableSequence from, File folder, String name) {
     IOError ioError = checkFile(folder, Mode.SAVE_TO_FOLDER);
     if (ioError != IOError.NONE) {
       throwException(ioError, folder);
     }
+    FieldExtensions fieldExtensions = from.getFieldExtensions();
     if (fieldExtensions == null) {
       throw new IllegalArgumentException("Field extensions are null");
     }
@@ -55,13 +62,13 @@ public class FieldExtensionsFileUtils {
     }
     String filename = name + FILE_EXTENSION;
     File to = folder.toPath().resolve(filename).toFile();
-    save(fieldExtensions, to);
+    save(from, to);
   }
 
   @SuppressWarnings({
     "JdkObsolete", // for LinkedList
   })
-  public static void save(FieldExtensions fieldExtensions, File to) {
+  public static void save(ExecutableSequence from, File to) {
     IOError ioError = checkFile(to, Mode.SAVE);
     if (ioError != IOError.NONE) {
       throwException(ioError, to);
@@ -73,52 +80,50 @@ public class FieldExtensionsFileUtils {
     } catch (IOException e) {
       throw new RuntimeException("Failed to create file: " + to.getAbsolutePath(), e);
     }
-    try (DataOutputStream dos = new DataOutputStream(Files.newOutputStream(to.toPath()))) {
-      List<String> fields = new LinkedList<>(fieldExtensions.getFields());
-      dos.writeInt(fields.size());
-      for (String field : fields) {
-        dos.writeUTF(field);
-        FieldExtension fieldExtension = fieldExtensions.getExtensionForField(field);
-        List<String> sources = new LinkedList<>(fieldExtension.getDomain());
-        dos.writeInt(sources.size());
-        for (String src : sources) {
-          dos.writeUTF(src);
-          List<String> values = new LinkedList<>(fieldExtension.getValues(src));
-          dos.writeInt(values.size());
-          for (String value : values) {
-            dos.writeUTF(value);
-          }
+    FieldExtensions fieldExtensions = from.getFieldExtensions();
+    IOFieldExtensions ioFieldExtensions = new IOFieldExtensions();
+    List<String> fields = new LinkedList<>(fieldExtensions.getFields());
+    for (String field : fields) {
+      IOField ioField = new IOField(field);
+      FieldExtension fieldExtension = fieldExtensions.getExtensionForField(field);
+      List<String> sources = new LinkedList<>(fieldExtension.getDomain());
+      for (String src : sources) {
+        IOSource ioSource = new IOSource(src);
+        List<String> values = new LinkedList<>(fieldExtension.getValues(src));
+        for (String value : values) {
+          ioSource.addValue(value);
         }
+        ioField.addSource(ioSource);
       }
+      ioFieldExtensions.addField(ioField);
+    }
+
+    if (FieldOptionsManager.getInstance().includeSequenceWhenSavingExtensionsToFile()) {
+      ioFieldExtensions.addFrom(from);
+    }
+
+    Gson gson = new GsonBuilder().setPrettyPrinting().serializeNulls().create();
+
+    try (BufferedWriter writer = Files.newBufferedWriter(to.toPath(), UTF_8)) {
+      gson.toJson(ioFieldExtensions, writer);
     } catch (IOException e) {
       throw new RuntimeException("Failed to save file: " + to.getAbsolutePath(), e);
     }
   }
 
-  public static FieldExtensions load(File from) {
+  public static IOFieldExtensions load(File from) {
     IOError ioError = checkFile(from, Mode.LOAD);
     if (ioError != IOError.NONE) {
       throwException(ioError, from);
     }
-    FieldExtensions fieldExtensions = new FieldExtensions();
-    try (DataInputStream dis = new DataInputStream(Files.newInputStream(from.toPath()))) {
-      int fieldCount = dis.readInt();
-      for (int i = 0; i < fieldCount; i++) {
-        String field = dis.readUTF();
-        int soucesCount = dis.readInt();
-        for (int j = 0; j < soucesCount; j++) {
-          String src = dis.readUTF();
-          int valuesCount = dis.readInt();
-          for (int k = 0; k < valuesCount; k++) {
-            String value = dis.readUTF();
-            fieldExtensions.addPairToField(field, src, value);
-          }
-        }
-      }
+    Gson gson = new GsonBuilder().serializeNulls().create();
+    IOFieldExtensions ioFieldExtensions;
+    try (BufferedReader bufferedReader = Files.newBufferedReader(from.toPath(), UTF_8)) {
+      ioFieldExtensions = gson.fromJson(bufferedReader, IOFieldExtensions.class);
     } catch (IOException e) {
       throw new RuntimeException("Failed to load from file: " + from.getAbsolutePath(), e);
     }
-    return fieldExtensions;
+    return ioFieldExtensions;
   }
 
   public enum Mode {
@@ -158,7 +163,7 @@ public class FieldExtensionsFileUtils {
     if (mode == null) {
       return IOError.NULL_MODE;
     }
-    if (!file.getName().endsWith(FILE_EXTENSION)) {
+    if (mode == Mode.SAVE && !file.getName().endsWith(FILE_EXTENSION)) {
       return IOError.WRONG_EXTENSION;
     }
     if (mode == Mode.SAVE_TO_FOLDER && !file.isDirectory()) {

@@ -310,6 +310,7 @@ task python3IsInstalled(type: Exec) {
 
 task checkFormat(type: Exec, dependsOn: [getCodeFormatScripts, python3IsInstalled], group: 'Formatting') {
   description "Check whether the Java source code is properly formatted"
+  environment 'GJF_VERSION', '1.8'
   def javaFiles = fileTree("$projectDir").matching{
     include "**/*.java" exclude "src/testInput/**" exclude "build/**" exclude "**/CloneVisitor.java"
   } as List
@@ -329,6 +330,7 @@ task checkFormat(type: Exec, dependsOn: [getCodeFormatScripts, python3IsInstalle
 
 task reformat(type: Exec, dependsOn: [getCodeFormatScripts, python3IsInstalled], group: 'Formatting') {
   description "Format the Java source code according to the Google Java Format style"
+  environment 'GJF_VERSION', '1.8'
   def javaFiles = fileTree("$projectDir").matching{
     include "**/*.java" exclude "src/testInput/**" exclude "build/**" exclude "**/CloneVisitor.java"
   } as List

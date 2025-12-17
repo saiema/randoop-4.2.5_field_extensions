@@ -2,14 +2,7 @@ package randoop.sequence;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import randoop.ExceptionalExecution;
 import randoop.ExecutionOutcome;
 import randoop.ExecutionVisitor;
@@ -17,6 +10,7 @@ import randoop.Globals;
 import randoop.NormalExecution;
 import randoop.NotExecuted;
 import randoop.condition.ExpectedOutcomeTable;
+import randoop.generation.fieldcoverage.FieldCoverage;
 import randoop.main.GenInputsAbstract;
 import randoop.operation.TypedOperation;
 import randoop.test.Check;
@@ -104,27 +98,31 @@ public class ExecutableSequence {
   /** The subsequences that were concatenated to create this sequence. */
   public List<Sequence> componentSequences = Collections.emptyList();
 
-  /** Field/value tuples obtained from all objects at the last statement of this sequence */
-  private FieldExtensions fieldExtensionsFromLastStatement;
+  /** Field/value tuples obtained from this sequence */
+  private FieldExtensions fieldExtensions;
+
+  /** Describes whether field extensions were set or not */
+  private boolean fieldExtensionsSet = false;
 
   /**
-   * Returns field/value tuples obtained from all objects at the last statement of this sequence.
+   * Returns field/value tuples obtained from this sequence.
    *
-   * @return Field/value tuples obtained from all objects at the last statement of this sequence
+   * @return Field/value tuples obtained from this sequence
    */
-  public FieldExtensions getFieldExtensionsFromLastStatement() {
-    return fieldExtensionsFromLastStatement;
+  public FieldExtensions getFieldExtensions() {
+    if (!fieldExtensionsSet) {
+      throw new IllegalStateException("Field extensions not set for this sequence");
+    }
+    return fieldExtensions;
   }
 
   /**
-   * Set Field/value tuples obtained from all objects at the last statement of this sequence
+   * Returns whether this sequence has field extensions calculated
    *
-   * @param fieldExtensionsFromLastStatement the new Field/value tuples obtained from all objects at
-   *     the last statement of this sequence
+   * @return {@code true} iff field extensions have been calculated for this sequence
    */
-  public void setFieldExtensionsFromLastStatement(
-      FieldExtensions fieldExtensionsFromLastStatement) {
-    this.fieldExtensionsFromLastStatement = fieldExtensionsFromLastStatement;
+  public boolean hasFieldExtensions() {
+    return fieldExtensionsSet;
   }
 
   /**
@@ -302,6 +300,7 @@ public class ExecutableSequence {
   private void execute(ExecutionVisitor visitor, TestCheckGenerator gen, boolean ignoreException) {
 
     long startTime = System.nanoTime();
+    long canonizationTime = 0L;
     try { // try statement for timing
 
       visitor.initialize(this);
@@ -312,6 +311,17 @@ public class ExecutableSequence {
 
         // Collect the input values to i-th statement.
         Object[] inputValues = getRuntimeInputs(executionResults.outcomes, sequence.getInputs(i));
+        if (GenInputsAbstract.field_coverage_metrics) {
+          canonizationTime = System.nanoTime();
+          if (!this.fieldExtensionsSet) {
+            this.fieldExtensionsSet = true;
+            this.fieldExtensions = new FieldExtensions();
+          }
+          for (Object inValue : inputValues) {
+            this.fieldExtensions.addAll(FieldCoverage.getInstance().canonicalize(inValue));
+          }
+          canonizationTime = System.nanoTime() - canonizationTime;
+        }
 
         if (i == this.sequence.size() - 1) {
           // This is the last statement in the sequence.
@@ -333,6 +343,17 @@ public class ExecutableSequence {
 
         // make sure statement executed
         ExecutionOutcome statementResult = getResult(i);
+
+        if (GenInputsAbstract.field_coverage_metrics) {
+          long outputCanonizationTime = System.nanoTime();
+          if (statementResult instanceof NormalExecution) {
+            Object outputValue = ((NormalExecution) statementResult).getRuntimeValue();
+            this.fieldExtensions.addAll(FieldCoverage.getInstance().canonicalize(outputValue));
+          }
+          outputCanonizationTime = System.nanoTime() - outputCanonizationTime;
+          canonizationTime += outputCanonizationTime;
+        }
+
         if (statementResult instanceof NotExecuted) {
           throw new Error("Unexecuted statement in sequence: " + this.toString());
         }
@@ -372,6 +393,7 @@ public class ExecutableSequence {
 
     } finally {
       exectime = System.nanoTime() - startTime;
+      exectime -= canonizationTime;
     }
   }
 
